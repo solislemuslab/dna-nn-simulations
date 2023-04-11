@@ -1,0 +1,10 @@
+{
+	"_note": "this is an example for model spec json file, not really a working example",
+	"modelName": "mlp",
+	"ngpu": 1,
+	"lr": 0.001,
+	"batchSize": 32,
+	"nEpoch": 500,
+	"lrSteps": 5,
+	"_comment": "This will be changed for each different model and will have different variable names"
+}
