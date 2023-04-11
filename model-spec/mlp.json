@@ -1,6 +1,8 @@
 {
 	"_note": "this is an example for model spec json file, not really a working example",
 	"modelName": "mlp",
+	"dataRoot": "../dataset/",
+	"outRoot": "../output/",
 	"ngpu": 1,
 	"lr": 0.001,
 	"batchSize": 32,
