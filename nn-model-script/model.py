@@ -75,6 +75,7 @@ print("The length of each sequence is {}".format(lenSequence))
 print("==================================================================================")
 
 # TODO: encode the sequence
-# TODO: define the models. We want all models in this script, and we only call the specifc model in the training defined by {$model} in json
+# TODO: define the models. We want all models in this script, 
+# and we only call the specifc model in the training defined by {$model} in json
 # TODO: training and testing process
 # TODO: performance analysis and saving the result
