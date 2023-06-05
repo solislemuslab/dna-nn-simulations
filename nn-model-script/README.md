@@ -1,0 +1,3 @@
+- [model.py](model.py): the main process
+- [models.py:](models.py) defines all the models
+- [encodings.py](encodings.py): defines all the encodings
