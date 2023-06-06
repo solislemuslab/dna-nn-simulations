@@ -9,7 +9,7 @@ import os
 from os import path
 import gc
 
-from encodings import seq2kmer
+from transformers import Trainer, AutoTokenizer
 
 # add the relative path of the parent directory
 sys.path.insert(0, '../')
@@ -20,6 +20,7 @@ if len(sys.argv) != 3:
     print("Usage: python3 model.py $dataFileName $jsonName")
     print("$dataFileName: the name of sequence/label set without the prefix and extension")
     print("$jsonName: full json file name with extension")
+    print("example: python3 model.py fake01 mlp.json")
     exit(0)
 
 # The command for executing this script should be:
@@ -84,15 +85,38 @@ print("The number of sample is {}".format(sample_size))
 print("The length of each sequence is {}".format(seq_length))
 print("==================================================================================")
 
+
 # encode the sequences
 # kmer encoding
-k = 3
-kmer_encodings = [seq2kmer(x, k) for x in sequences]
+def seq2kmer(seq, k=3) -> str:
+    """
+    converts original sequences to kmers
+
+    seq: str, original sequence
+    k: int, the length of each kmer
+
+    returns str: kmers separated by spaces
+    """
+    kmers = [seq[x: x + k] for x in range(len(seq) - k)]
+
+    return " ".join(kmers)
+
+
+kmer_encodings = [seq2kmer(x, k=6) for x in sequences]
 
 # for i in range(5):
 #     print(kmer_encodings[i])
 
-# TODO: create the dataset
+# After the kmer encoding process, the next step is either using one-hot encoding or tokenizer
+# to "tokenize" the data (words/kmers) into numerical forms that are acceptable for models
+# which can be done in the process of creating the datasets.
+
+# TODO: create the datasets
+class Dataset(data.Dataset):
+    """Dataset for training, evaluating, and testing"""
+    def __init__(self, mode='train'):
+        self.mode = mode
+
 
 # Update: All the models will be defined in models.py for modularity
 # We only call the specific model in the training defined by {$model} in json
