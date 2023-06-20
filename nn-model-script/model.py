@@ -8,8 +8,11 @@ import time
 import os
 from os import path
 import gc
+from sklearn.model_selection import train_test_split
 
 from transformers import Trainer, AutoTokenizer
+
+import models
 
 # add the relative path of the parent directory
 sys.path.insert(0, '../')
@@ -73,12 +76,14 @@ print("=========================================================================
 # load the input sequences and labels as lists of strings
 with open(dataRoot + seqFile, 'r') as f:
     sequences = f.readlines()
+    sequences = [sequence.strip() for sequence in sequences]
 with open(dataRoot + labelFile, 'r') as f:
     labels = f.readlines()
+    labels = [label.strip() for label in labels]
 
 # get the sample size and sequence length
 sample_size = len(labels)
-seq_length = len(sequences[0]) - 1
+seq_length = len(sequences[0])
 
 print("Finish loading data from " + seqFile + " and " + labelFile, flush=True)
 print("The number of sample is {}".format(sample_size))
@@ -88,7 +93,7 @@ print("=========================================================================
 
 # encode the sequences
 # kmer encoding
-def seq2kmer(seq, k=3) -> str:
+def seq2kmer(seq, k) -> str:
     """
     converts original sequences to kmers
 
@@ -97,12 +102,12 @@ def seq2kmer(seq, k=3) -> str:
 
     returns str: kmers separated by spaces
     """
-    kmers = [seq[x: x + k] for x in range(len(seq) - k)]
+    kmers = [seq[x: x + k] for x in range(len(seq) + 1 - k)]
 
     return " ".join(kmers)
 
 
-kmer_encodings = [seq2kmer(x, k=6) for x in sequences]
+kmer_encodings = [seq2kmer(x, 6) for x in sequences]
 
 # for i in range(5):
 #     print(kmer_encodings[i])
@@ -111,12 +116,103 @@ kmer_encodings = [seq2kmer(x, k=6) for x in sequences]
 # to "tokenize" the data (words/kmers) into numerical forms that are acceptable for models
 # which can be done in the process of creating the datasets.
 
-# TODO: create the datasets
-class Dataset(data.Dataset):
-    """Dataset for training, evaluating, and testing"""
-    def __init__(self, mode='train'):
-        self.mode = mode
+# # load the tokenizer
+# tokenizer = AutoTokenizer.from_pretrained("zhihan1996/DNA_bert_6", trust_remote_code=True)
+#
+# # tokenize the data
+# tokenized_data = tokenizer(kmer_encodings, return_tensors="pt")
 
+# print(tokenized_data['input_ids'])
+# print(len(np.array(tokenized_data["input_ids"])))
+# print(np.array(tokenized_data["input_ids"]))
+# print(labels)
+# print(len(np.array(labels).astype(int)))
+# print(np.array(labels).astype(int))
+
+# TODO: create the datasets for training, evaluating, and testing
+# Here we have 3 different ways of embedding/encoding:
+# 1. Tokenizer; 2. naive one-hot encoding; 3. kmer count
+
+
+def dataset(mode='train', encoding='one-hot'):
+    """
+    Return dataset with specific encoding method
+    Encoding/Embedding methods: one-hot, kmer-count, tokenizer
+    """
+    class NaiveOneHotDataset(data.Dataset):
+        """Dataset created through naive one-hot encoding"""
+
+    class KmerCountDataset(data.Dataset):
+        """Dataset created by counting the kmers"""
+
+    class TokenDataset(data.Dataset):
+        """Dataset created via tokenization on kmers"""
+        def __init__(self, mode=mode):
+            self.mode = mode
+
+            # load the tokenizer
+            tokenizer = AutoTokenizer.from_pretrained("zhihan1996/DNA_bert_6", trust_remote_code=True)
+            # tokenize the data (into tensors)
+            tokenized_data = tokenizer(kmer_encodings, return_tensors="pt")
+            # load data into numpy arrays
+            X = np.array(tokenized_data["input_ids"])
+            y = np.array(labels).astype(int)
+            # split data into training data (90%) and testing data (10%)
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.1, random_state = 42)
+
+            if mode == 'test':
+                # testing data
+                # convert data into PyTorch tensors
+                self.data = torch.FloatTensor(X_test)
+                self.target = torch.FloatTensor(y_test)
+            else:
+                # training data (train/validate)
+                # split training data (90%) into train (75%) & dev (15%) sets
+                X_train, X_dev, y_train, y_dev = train_test_split(X_train, y_train, test_size=0.16, random_state=42)
+                if mode == 'train':
+                    self.data = torch.FloatTensor(X_train)
+                    self.target = torch.FloatTensor(y_train)
+                elif mode == 'dev':
+                    self.data = torch.FloatTensor(X_dev)
+                    self.target = torch.FloatTensor(y_dev)
+
+            print('Finished reading the {} set of Dataset ({} samples found)'.format(mode, len(self.data)))
+
+        def __getitem__(self, index):
+            # Returns one sample at a time
+            # if self.mode in ['train', 'dev']:
+            #     # for training
+            #     return self.data[item], self.target[item]
+            # else:
+            #     # for testing (no target)
+            #     return self.data[item]
+            return self.data[index], self.target[index]
+
+        def __len__(self):
+            # Returns the size of the dataset
+            return len(self.data)
+
+    # construct dataset (ds) based on encoding method specified
+    if encoding == 'one-hot':
+        ds: NaiveOneHotDataset = NaiveOneHotDataset(mode=mode)
+    elif encoding == 'kmer-count':
+        ds: KmerCountDataset = KmerCountDataset(mode=mode)
+    elif encoding == 'tokenizer':
+        ds: TokenDataset = TokenDataset(mode=mode)
+
+    return ds
+
+
+def dataloader(mode, batch_size, n_jobs=0, encoding='one-hot'):
+    """
+    Generate a dataset, then put it in a dataloader
+    """
+    # construct dataset
+    ds = dataset(mode=mode, encoding=encoding)
+    # construct dataloader
+    dl = data.DataLoader(ds, batch_size, shuffle=(mode == 'train'),
+                         drop_last=False, num_workers=n_jobs, pin_memory=True)
+    return dl
 
 # Update: All the models will be defined in models.py for modularity
 # We only call the specific model in the training defined by {$model} in json

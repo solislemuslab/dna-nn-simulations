@@ -1,1 +1,13 @@
+.vscode
+.idea/
+
+# Logs
+logs
+*.log
+
+# Byte-compiled
 __pycache__
+
+# Original data
+*.fasta
+*.data

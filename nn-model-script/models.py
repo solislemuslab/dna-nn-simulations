@@ -13,7 +13,7 @@ def dna_bert6():
 
 
 def cnn_nguyen_2_conv2d(x_shape, classes=2):
-    class cnn_nguyen_2_conv2d(nn.module):
+    class cnn_nguyen_2_conv2d(nn.Module):
         def __init__(self, x_shape, classes=2):
             super(cnn_nguyen_2_conv2d, self).__init__()
             self.net = nn.Sequential(
