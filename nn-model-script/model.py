@@ -8,7 +8,10 @@ import time
 import os
 from os import path
 import gc
+
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from itertools import product
 
 from transformers import Trainer, AutoTokenizer
 
@@ -107,7 +110,9 @@ def seq2kmer(seq, k) -> str:
     return " ".join(kmers)
 
 
-kmer_encodings = [seq2kmer(x, 6) for x in sequences]
+# get the kmer encodings
+k = 6
+kmer_encodings = [seq2kmer(x, k) for x in sequences]
 
 # for i in range(5):
 #     print(kmer_encodings[i])
@@ -116,12 +121,13 @@ kmer_encodings = [seq2kmer(x, 6) for x in sequences]
 # to "tokenize" the data (words/kmers) into numerical forms that are acceptable for models
 # which can be done in the process of creating the datasets.
 
+# # Tokenizer test
 # # load the tokenizer
 # tokenizer = AutoTokenizer.from_pretrained("zhihan1996/DNA_bert_6", trust_remote_code=True)
 #
 # # tokenize the data
 # tokenized_data = tokenizer(kmer_encodings, return_tensors="pt")
-
+#
 # print(tokenized_data['input_ids'])
 # print(len(np.array(tokenized_data["input_ids"])))
 # print(np.array(tokenized_data["input_ids"]))
@@ -129,9 +135,67 @@ kmer_encodings = [seq2kmer(x, 6) for x in sequences]
 # print(len(np.array(labels).astype(int)))
 # print(np.array(labels).astype(int))
 
-# TODO: create the datasets for training, evaluating, and testing
+# # One-hot encoding test
+# # The LabelEncoder encodes a sequence of bases as a sequence of integers.
+# integer_encoder = LabelEncoder()
+# # The OneHotEncoder converts an array of integers to a sparse matrix where
+# # each row corresponds to one possible value of each feature.
+# one_hot_encoder = OneHotEncoder(categories='auto')
+#
+# one_hot_encodings = []
+# for sequence in sequences:
+#     integer_encoded = integer_encoder.fit_transform(list(sequence))
+#     integer_encoded = np.array(integer_encoded).reshape(-1, 1)
+#     one_hot_encoded = one_hot_encoder.fit_transform(integer_encoded)
+#     one_hot_encodings.append(one_hot_encoded.T.toarray())
+#
+# one_hot_encodings = np.stack(one_hot_encodings)
+# # print(one_hot_encodings)
+# # print(type(one_hot_encodings))
+# # print(one_hot_encodings.shape)
+#
+# X = one_hot_encodings
+# y = np.array(labels).astype(int)
+# # split data into training data (90%) and testing data (10%)
+# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
+# print(len(X_train))
+# print(len(X_test))
+# print(len(y_train))
+# print(len(y_test))
+# X_train, X_dev, y_train, y_dev = train_test_split(X_train, y_train, test_size=0.167, random_state=42)
+# print(len(X_train))
+# print(len(X_dev))
+# print(len(y_train))
+# print(len(y_dev))
+
+# # kmer count test
+# # set the value of k
+# k = 3
+# # get all the possible kmers
+# dictionary = [p for p in product(["A", "C", "G", "T"], repeat=k)]
+# # initialization: all zeros
+# zeros = np.zeros((len(sequences), len(dictionary)))
+#
+# # iterate through all the sequences
+# for i in range(0, len(sequences)):
+#     # iterate each base-pair in a sequence
+#     for j in range(0, seq_length - k + 1):
+#         # counting for each kmer
+#         for index, kmer in enumerate(dictionary):
+#             if kmer == tuple(sequences[i][j:j + k]):
+#                 zeros[i][index] += 1
+#                 break
+# print(dictionary)
+# print(len(dictionary))
+# print(zeros)
+# print(zeros.shape) # (len(sequences), len(dictionary))
+# print(type(zeros)) # numpy.ndarray
+# print(zeros.dtype) # float64
+
+
+# Done: create the datasets for training, evaluating, and testing
 # Here we have 3 different ways of embedding/encoding:
-# 1. Tokenizer; 2. naive one-hot encoding; 3. kmer count
+# 1. naive one-hot encoding; 2. kmer count; 3. Tokenizer
 
 
 def dataset(mode='train', encoding='one-hot'):
@@ -141,9 +205,119 @@ def dataset(mode='train', encoding='one-hot'):
     """
     class NaiveOneHotDataset(data.Dataset):
         """Dataset created through naive one-hot encoding"""
+        def __init__(self, mode=mode):
+            self.mode = mode
+
+            # The LabelEncoder encodes a sequence of bases as a sequence of integers.
+            integer_encoder = LabelEncoder()
+            # The OneHotEncoder converts an array of integers to a sparse matrix where
+            # each row corresponds to one possible value of each feature.
+            one_hot_encoder = OneHotEncoder(categories='auto')
+
+            one_hot_encodings = []
+            for sequence in sequences:
+                integer_encoded = integer_encoder.fit_transform(list(sequence))
+                integer_encoded = np.array(integer_encoded).reshape(-1, 1)
+                one_hot_encoded = one_hot_encoder.fit_transform(integer_encoded)
+                one_hot_encodings.append(one_hot_encoded.T.toarray())
+
+            one_hot_encodings = np.stack(one_hot_encodings)
+
+            X = one_hot_encodings
+            y = np.array(labels).astype(int)
+            # split data into training data (90%) and testing data (10%)
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
+
+            if mode == 'test':
+                # testing data
+                # convert data into PyTorch tensors
+                self.data = torch.FloatTensor(X_test)
+                self.target = torch.FloatTensor(y_test)
+            else:
+                # training data (train/validate)
+                # split training data (90%) into train (75%) & dev (15%) sets
+                X_train, X_dev, y_train, y_dev = train_test_split(X_train, y_train, test_size=0.167, random_state=42)
+                if mode == 'train':
+                    self.data = torch.FloatTensor(X_train)
+                    self.target = torch.FloatTensor(y_train)
+                elif mode == 'dev':
+                    self.data = torch.FloatTensor(X_dev)
+                    self.target = torch.FloatTensor(y_dev)
+
+            print('Finished reading the {} set of NaiveOneHotDataset ({} samples found)'.format(mode, len(self.data)))
+
+        def __getitem__(self, index):
+            # Returns one sample at a time
+            # if self.mode in ['train', 'dev']:
+            #     # for training
+            #     return self.data[item], self.target[item]
+            # else:
+            #     # for testing (no target)
+            #     return self.data[item]
+            return self.data[index], self.target[index]
+
+        def __len__(self):
+            # Returns the size of the dataset
+            return len(self.data)
 
     class KmerCountDataset(data.Dataset):
         """Dataset created by counting the kmers"""
+        def __init__(self, mode=mode):
+            self.mode = mode
+
+            # set the value of k
+            k = 6
+            # get all the possible kmers
+            dictionary = [p for p in product(["A", "C", "G", "T"], repeat=k)]
+            # initialization: all zeros
+            zeros = np.zeros((len(sequences), len(dictionary)))
+
+            # iterate through all the sequences
+            for i in range(0, len(sequences)):
+                # iterate each base-pair in a sequence
+                for j in range(0, seq_length - k + 1):
+                    # counting for each kmer
+                    for index, kmer in enumerate(dictionary):
+                        if kmer == tuple(sequences[i][j:j + k]):
+                            zeros[i][index] += 1
+                            break
+
+            X = zeros.astype(int)
+            y = np.array(labels).astype(int)
+            # split data into training data (90%) and testing data (10%)
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
+
+            if mode == 'test':
+                # testing data
+                # convert data into PyTorch tensors
+                self.data = torch.FloatTensor(X_test)
+                self.target = torch.FloatTensor(y_test)
+            else:
+                # training data (train/validate)
+                # split training data (90%) into train (75%) & dev (15%) sets
+                X_train, X_dev, y_train, y_dev = train_test_split(X_train, y_train, test_size=0.167, random_state=42)
+                if mode == 'train':
+                    self.data = torch.FloatTensor(X_train)
+                    self.target = torch.FloatTensor(y_train)
+                elif mode == 'dev':
+                    self.data = torch.FloatTensor(X_dev)
+                    self.target = torch.FloatTensor(y_dev)
+
+            print('Finished reading the {} set of KmerCountDataset ({} samples found)'.format(mode, len(self.data)))
+
+        def __getitem__(self, index):
+            # Returns one sample at a time
+            # if self.mode in ['train', 'dev']:
+            #     # for training
+            #     return self.data[item], self.target[item]
+            # else:
+            #     # for testing (no target)
+            #     return self.data[item]
+            return self.data[index], self.target[index]
+
+        def __len__(self):
+            # Returns the size of the dataset
+            return len(self.data)
 
     class TokenDataset(data.Dataset):
         """Dataset created via tokenization on kmers"""
@@ -158,7 +332,7 @@ def dataset(mode='train', encoding='one-hot'):
             X = np.array(tokenized_data["input_ids"])
             y = np.array(labels).astype(int)
             # split data into training data (90%) and testing data (10%)
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.1, random_state = 42)
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
 
             if mode == 'test':
                 # testing data
@@ -168,7 +342,7 @@ def dataset(mode='train', encoding='one-hot'):
             else:
                 # training data (train/validate)
                 # split training data (90%) into train (75%) & dev (15%) sets
-                X_train, X_dev, y_train, y_dev = train_test_split(X_train, y_train, test_size=0.16, random_state=42)
+                X_train, X_dev, y_train, y_dev = train_test_split(X_train, y_train, test_size=0.167, random_state=42)
                 if mode == 'train':
                     self.data = torch.FloatTensor(X_train)
                     self.target = torch.FloatTensor(y_train)
@@ -176,7 +350,7 @@ def dataset(mode='train', encoding='one-hot'):
                     self.data = torch.FloatTensor(X_dev)
                     self.target = torch.FloatTensor(y_dev)
 
-            print('Finished reading the {} set of Dataset ({} samples found)'.format(mode, len(self.data)))
+            print('Finished reading the {} set of TokenDataset ({} samples found)'.format(mode, len(self.data)))
 
         def __getitem__(self, index):
             # Returns one sample at a time
