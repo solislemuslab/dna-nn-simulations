@@ -94,7 +94,6 @@ print("The length of each sequence is {}".format(seq_length))
 print("==================================================================================")
 
 
-# encode the sequences
 # kmer encoding
 def seq2kmer(seq, k) -> str:
     """
@@ -392,4 +391,5 @@ def dataloader(mode, batch_size, n_jobs=0, encoding='one-hot'):
 # We only call the specific model in the training defined by {$model} in json
 
 # TODO: training and testing process
+
 # TODO: performance analysis and saving the result
