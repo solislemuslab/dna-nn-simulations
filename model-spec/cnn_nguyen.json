@@ -1,12 +1,12 @@
 {
-	"_note": "This is an example for model spec json file, not really a working example.",
-	"modelName": "mlp",
+	"_note": "This is the basic cnn model",
+	"modelName": "cnn_nguyen_2_conv2d",
 	"dataRoot": "../dataset/",
 	"outRoot": "../output/",
 	"nGpu": 1,
 	"lr": 0.001,
 	"batchSize": 32,
-	"nEpoch": 500,
+	"nEpoch": 50,
 	"lrSteps": 5,
 	"_comment": "This will be changed for each different model and will have different variable names."
 }

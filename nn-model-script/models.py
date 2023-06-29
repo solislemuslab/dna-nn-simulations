@@ -14,17 +14,18 @@ def dna_bert6():
 
 def cnn_nguyen_2_conv2d(x_shape, classes=2):
     class cnn_nguyen_2_conv2d(nn.Module):
-        def __init__(self, x_shape, classes=2):
+        def __init__(self, x_shape=x_shape, classes=classes):
             super(cnn_nguyen_2_conv2d, self).__init__()
+
             self.net = nn.Sequential(
-                nn.Conv2d(x_shape[0], 16, kernel_size=3, padding=1),
+                nn.Conv2d(32, 16, kernel_size=3, padding=1),
                 nn.ReLU(),
                 nn.MaxPool2d(kernel_size=2, stride=2),
                 nn.Conv2d(16, 32, kernel_size=3, padding=1),
                 nn.ReLU(),
                 nn.MaxPool2d(kernel_size=2, stride=2),
                 nn.Flatten(),
-                nn.Linear(32 * (x_shape[1] // 4) * (x_shape[2] // 4), 32),
+                nn.Linear(32 * (x_shape[0] // 4) * (x_shape[1] // 4), 32),
                 nn.ReLU(),
                 nn.Dropout(0.5)
             )
